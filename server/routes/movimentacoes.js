@@ -8,6 +8,17 @@ const parseNumber = (value) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const movimentacaoSelect = `
+  SELECT
+    m.*,
+    p.nome AS produto_nome,
+    p.categoria_id,
+    c.nome AS categoria_nome
+  FROM movimentacoes m
+  JOIN produtos p ON p.id = m.produto_id
+  LEFT JOIN categorias c ON c.id = p.categoria_id
+`;
+
 router.get('/', (req, res) => {
   const clauses = [];
   const params = [];
@@ -42,7 +53,7 @@ router.get('/', (req, res) => {
 
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const movimentacoes = db
-    .prepare(`SELECT * FROM movimentacoes ${where} ORDER BY data DESC`)
+    .prepare(`${movimentacaoSelect} ${where} ORDER BY m.data DESC`)
     .all(...params);
 
   return res.json(movimentacoes);
@@ -93,7 +104,7 @@ router.post('/', (req, res) => {
   });
 
   const result = transaction();
-  const movimentacao = db.prepare('SELECT * FROM movimentacoes WHERE id = ?').get(result.lastInsertRowid);
+  const movimentacao = db.prepare(`${movimentacaoSelect} WHERE m.id = ?`).get(result.lastInsertRowid);
 
   return res.status(201).json(movimentacao);
 });

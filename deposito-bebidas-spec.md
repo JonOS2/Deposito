@@ -1,4 +1,4 @@
-# Depósito de Bebidas — Especificação do Projeto
+# 📦 Depósito de Bebidas — Especificação do Projeto
 
 ## Visão Geral
 
@@ -35,6 +35,7 @@ deposito-bebidas/
 │   ├── backup.js            # Lógica de backup automático
 │   ├── routes/
 │   │   ├── auth.js          # Validação do PIN
+│   │   ├── categorias.js    # CRUD de categorias
 │   │   ├── produtos.js      # CRUD de produtos
 │   │   ├── movimentacoes.js # Entradas e saídas de estoque
 │   │   └── dashboard.js     # Queries agregadas para gráficos
@@ -80,11 +81,17 @@ CREATE TABLE IF NOT EXISTS config (
   valor TEXT NOT NULL
 );
 
+-- Categorias de produtos
+CREATE TABLE IF NOT EXISTS categorias (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome TEXT NOT NULL UNIQUE
+);
+
 -- Produtos do estoque
 CREATE TABLE IF NOT EXISTS produtos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nome TEXT NOT NULL,
-  categoria TEXT,
+  categoria_id INTEGER REFERENCES categorias(id),
   preco_custo REAL NOT NULL DEFAULT 0,
   preco_venda REAL NOT NULL DEFAULT 0,
   quantidade INTEGER NOT NULL DEFAULT 0,
@@ -114,6 +121,14 @@ CREATE TABLE IF NOT EXISTS movimentacoes (
 |---|---|---|
 | POST | `/auth/verificar` | Valida PIN. Body: `{ pin: "1234" }` |
 | POST | `/auth/definir` | Define PIN inicial. Body: `{ pin: "1234" }` |
+
+### Categorias
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/categorias` | Lista todas as categorias |
+| POST | `/categorias` | Cadastra nova categoria |
+| PUT | `/categorias/:id` | Edita categoria |
+| DELETE | `/categorias/:id` | Remove categoria (só se não houver produtos vinculados) |
 
 ### Produtos
 | Método | Rota | Descrição |

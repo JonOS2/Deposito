@@ -14,14 +14,43 @@ const parseNumber = (value, fallback) => {
   return { value: parsed };
 };
 
+const parseOptionalId = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return { value: null };
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return { error: true };
+  }
+
+  return { value: parsed };
+};
+
+const produtoSelect = `
+  SELECT
+    p.*,
+    c.nome AS categoria_nome
+  FROM produtos p
+  LEFT JOIN categorias c ON c.id = p.categoria_id
+`;
+
+const categoriaExiste = (categoriaId) => {
+  if (categoriaId === null) {
+    return true;
+  }
+
+  return Boolean(db.prepare('SELECT id FROM categorias WHERE id = ?').get(categoriaId));
+};
+
 router.get('/', (req, res) => {
-  const produtos = db.prepare('SELECT * FROM produtos ORDER BY nome').all();
+  const produtos = db.prepare(`${produtoSelect} ORDER BY p.nome`).all();
   return res.json(produtos);
 });
 
 router.get('/alertas', (req, res) => {
   const produtos = db
-    .prepare('SELECT * FROM produtos WHERE quantidade < estoque_minimo ORDER BY nome')
+    .prepare(`${produtoSelect} WHERE p.quantidade < p.estoque_minimo ORDER BY p.nome`)
     .all();
   return res.json(produtos);
 });
@@ -41,25 +70,26 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Valores numéricos inválidos' });
   }
 
-  const categoria = req.body?.categoria ? String(req.body.categoria).trim() : null;
+  const { value: categoriaId, error: categoriaErr } = parseOptionalId(req.body?.categoria_id);
+  if (categoriaErr) {
+    return res.status(400).json({ error: 'categoria_id inválido' });
+  }
+
+  if (!categoriaExiste(categoriaId)) {
+    return res.status(404).json({ error: 'Categoria não encontrada' });
+  }
+
   const unidade = req.body?.unidade ? String(req.body.unidade).trim() : 'un';
 
   const result = db
     .prepare(
-      'INSERT INTO produtos (nome, categoria, preco_custo, preco_venda, quantidade, estoque_minimo, unidade) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO produtos (nome, categoria_id, preco_custo, preco_venda, quantidade, estoque_minimo, unidade) VALUES (?, ?, ?, ?, ?, ?, ?)'
     )
-    .run(nome, categoria, precoCusto, precoVenda, quantidade, estoqueMinimo, unidade);
+    .run(nome, categoriaId, precoCusto, precoVenda, quantidade, estoqueMinimo, unidade);
 
-  return res.status(201).json({
-    id: result.lastInsertRowid,
-    nome,
-    categoria,
-    preco_custo: precoCusto,
-    preco_venda: precoVenda,
-    quantidade,
-    estoque_minimo: estoqueMinimo,
-    unidade,
-  });
+  const produto = db.prepare(`${produtoSelect} WHERE p.id = ?`).get(result.lastInsertRowid);
+
+  return res.status(201).json(produto);
 });
 
 router.put('/:id', (req, res) => {
@@ -90,15 +120,24 @@ router.put('/:id', (req, res) => {
     return res.status(400).json({ error: 'Valores numéricos inválidos' });
   }
 
-  const categoria =
-    req.body?.categoria !== undefined ? String(req.body.categoria || '').trim() : produto.categoria;
+  const { value: categoriaId, error: categoriaErr } = parseOptionalId(
+    req.body?.categoria_id !== undefined ? req.body.categoria_id : produto.categoria_id
+  );
+  if (categoriaErr) {
+    return res.status(400).json({ error: 'categoria_id inválido' });
+  }
+
+  if (!categoriaExiste(categoriaId)) {
+    return res.status(404).json({ error: 'Categoria não encontrada' });
+  }
+
   const unidade = req.body?.unidade !== undefined ? String(req.body.unidade || '').trim() : produto.unidade;
 
   db.prepare(
-    'UPDATE produtos SET nome = ?, categoria = ?, preco_custo = ?, preco_venda = ?, quantidade = ?, estoque_minimo = ?, unidade = ? WHERE id = ?'
-  ).run(nome, categoria || null, precoCusto, precoVenda, quantidade, estoqueMinimo, unidade || null, id);
+    'UPDATE produtos SET nome = ?, categoria_id = ?, preco_custo = ?, preco_venda = ?, quantidade = ?, estoque_minimo = ?, unidade = ? WHERE id = ?'
+  ).run(nome, categoriaId, precoCusto, precoVenda, quantidade, estoqueMinimo, unidade || null, id);
 
-  const atualizado = db.prepare('SELECT * FROM produtos WHERE id = ?').get(id);
+  const atualizado = db.prepare(`${produtoSelect} WHERE p.id = ?`).get(id);
   return res.json(atualizado);
 });
 

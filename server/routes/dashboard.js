@@ -69,12 +69,13 @@ router.get('/categorias', (req, res) => {
   const dados = db
     .prepare(
       `SELECT
-        COALESCE(p.categoria, 'Sem categoria') AS categoria,
+        COALESCE(c.nome, 'Sem categoria') AS categoria,
         COALESCE(SUM(CASE WHEN m.tipo = 'entrada' THEN m.quantidade * m.valor_unitario END), 0) AS gasto,
         COALESCE(SUM(CASE WHEN m.tipo = 'saida' THEN m.quantidade * m.valor_unitario END), 0) AS lucro
        FROM movimentacoes m
        JOIN produtos p ON p.id = m.produto_id
-       GROUP BY COALESCE(p.categoria, 'Sem categoria')
+       LEFT JOIN categorias c ON c.id = p.categoria_id
+       GROUP BY COALESCE(c.nome, 'Sem categoria')
        ORDER BY categoria`
     )
     .all();

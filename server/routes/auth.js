@@ -8,6 +8,10 @@ const loadPinHash = () => {
   return db.prepare('SELECT valor FROM config WHERE chave = ?').get('pin_hash');
 };
 
+router.get('/status', (req, res) => {
+  return res.json({ pin_definido: Boolean(loadPinHash()) });
+});
+
 router.post('/verificar', async (req, res, next) => {
   try {
     const pin = String(req.body?.pin || '').trim();
